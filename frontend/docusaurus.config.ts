@@ -21,7 +21,7 @@ const config: Config = {
   baseUrl: '/',
 
   // GitHub pages deployment config.
-  // If you aren't using GitHub pages, you don't need these.
+  // If you aren't using GitHub pages, you don't need 
   organizationName: 'bilalinit', // Usually your GitHub org/user name.
   projectName: 'Physical-AI-Humanoids-book', // Usually your repo name.
 
