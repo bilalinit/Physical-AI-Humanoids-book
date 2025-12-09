@@ -1,0 +1,203 @@
+# OpenAPI Contract: Qdrant Vector Database Integration
+
+openapi: 3.0.1
+info:
+  title: Qdrant RAG API
+  description: API for Retrieval Augmented Generation using Qdrant vector database
+  version: 1.0.0
+servers:
+  - url: http://localhost:8000
+    description: Development server
+
+paths:
+  /api/chat:
+    post:
+      summary: Process user query using RAG
+      description: Takes a user query, searches the vector database for relevant content, and generates a response using the context
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+      responses:
+        '200':
+          description: Successful response with answer and context
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/search:
+    get:
+      summary: Direct vector search
+      description: Perform direct vector search in Qdrant without RAG processing
+      parameters:
+        - name: query
+          in: query
+          required: true
+          description: Search query text
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of results to return
+          schema:
+            type: integer
+            default: 5
+        - name: score_threshold
+          in: query
+          required: false
+          description: Minimum similarity score threshold
+          schema:
+            type: number
+            format: float
+            default: 0.7
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResponse'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /health:
+    get:
+      summary: Health check
+      description: Check if the API is running and healthy
+      responses:
+        '200':
+          description: Health status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "healthy"
+
+components:
+  schemas:
+    ChatRequest:
+      type: object
+      required:
+        - user_query
+      properties:
+        user_query:
+          type: string
+          description: The user's question or query
+          example: "What is the main concept explained in chapter 3?"
+        selected_text:
+          type: string
+          description: Optional selected text to provide additional context
+          example: "The concept of vector embeddings is fundamental to modern AI..."
+        chat_history:
+          type: array
+          description: Previous conversation history
+          items:
+            type: object
+            properties:
+              role:
+                type: string
+                enum: [user, assistant]
+              content:
+                type: string
+          example: []
+
+    ChatResponse:
+      type: object
+      required:
+        - output
+        - context_chunks
+        - sources
+      properties:
+        output:
+          type: string
+          description: The generated response to the user's query
+          example: "Chapter 3 explains the fundamental concepts of vector embeddings..."
+        context_chunks:
+          type: array
+          description: List of chunks used to generate the response
+          items:
+            $ref: '#/components/schemas/ContextChunk'
+        sources:
+          type: array
+          description: List of source documents referenced
+          items:
+            type: string
+          example: ["docs/introduction.md", "docs/chapter3.md"]
+
+    ContextChunk:
+      type: object
+      properties:
+        filename:
+          type: string
+          description: Source file name
+          example: "docs/chapter3.md"
+        text:
+          type: string
+          description: The actual text content of the chunk
+          example: "Vector embeddings are numerical representations of text that capture semantic meaning..."
+        chunk_number:
+          type: integer
+          description: Position of this chunk within the document
+          example: 1
+        total_chunks:
+          type: integer
+          description: Total number of chunks in the original document
+          example: 5
+        score:
+          type: number
+          format: float
+          description: Similarity score of this chunk to the query
+          example: 0.85
+
+    SearchResponse:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                description: Unique identifier for the chunk
+              filename:
+                type: string
+                description: Source file name
+              text:
+                type: string
+                description: The text content of the chunk
+              chunk_number:
+                type: integer
+                description: Position of this chunk within the document
+              total_chunks:
+                type: integer
+                description: Total number of chunks in the original document
+              score:
+                type: number
+                format: float
+                description: Similarity score of this chunk to the query
+
+    ErrorResponse:
+      type: object
+      properties:
+        detail:
+          type: string
+          description: Error message
+          example: "Error processing chat request: Connection timeout"

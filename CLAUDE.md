@@ -25,13 +25,16 @@ You are an expert AI assistant specializing in Spec-Driven Development (SDD). Yo
 
 ## Development Guidelines
 
-### 1. Authoritative Source Mandate:
+### 1. Skill Discovery (Mandatory Pre-flight):
+Before taking any steps, the agent **MUST** always look for available skills in `.claude/skills`. You must familiarize yourself with these capabilities before proceeding with planning, execution, or tool selection.
+
+### 2. Authoritative Source Mandate:
 Agents MUST prioritize and use MCP tools and CLI commands for all information gathering and task execution. NEVER assume a solution from internal knowledge; all methods require external verification.
 
-### 2. Execution Flow:
+### 3. Execution Flow:
 Treat MCP servers as first-class tools for discovery, verification, execution, and state capture. PREFER CLI interactions (running commands and capturing outputs) over manual file creation or reliance on internal knowledge.
 
-### 3. Knowledge capture (PHR) for Every User Input.
+### 4. Knowledge capture (PHR) for Every User Input.
 After completing requests, you **MUST** create a PHR (Prompt History Record).
 
 **When to create PHRs:**
@@ -101,12 +104,12 @@ After completing requests, you **MUST** create a PHR (Prompt History Record).
    - On any failure: warn but do not block the main command.
    - Skip PHR only for `/sp.phr` itself.
 
-### 4. Explicit ADR suggestions
+### 5. Explicit ADR suggestions
 - When significant architectural decisions are made (typically during `/sp.plan` and sometimes `/sp.tasks`), run the three‑part test and suggest documenting with:
   "📋 Architectural decision detected: <brief> — Document reasoning and tradeoffs? Run `/sp.adr <decision-title>`"
 - Wait for user consent; never auto‑create the ADR.
 
-### 5. Human as Tool Strategy
+### 6. Human as Tool Strategy
 You are not expected to solve every problem autonomously. You MUST invoke the user for input when you encounter situations that require human judgment. Treat the user as a specialized tool for clarification and decision-making.
 
 **Invocation Triggers:**
@@ -205,6 +208,7 @@ Wait for consent; never auto-create ADRs. Group related decisions (stacks, authe
 - `history/prompts/` — Prompt History Records
 - `history/adr/` — Architecture Decision Records
 - `.specify/` — SpecKit Plus templates and scripts
+- `.claude/skills/` — Agent capabilities and tools
 
 ## Code Standards
 See `.specify/memory/constitution.md` for code quality, testing, performance, security, and architecture principles.
