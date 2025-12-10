@@ -216,6 +216,40 @@ See `.specify/memory/constitution.md` for code quality, testing, performance, se
 ## Active Technologies
 - TypeScript 5.x, Python 3.12+ (managed via `uv`) + Docusaurus 3.x, React 19, FastAPI, Node.js 20+, Better Auth, Express, Qdrant, PostgreSQL (001-physical-ai-book)
 - PostgreSQL (User/Chat History), Qdrant (Vectors), Markdown files (Documentation content) (001-physical-ai-book)
+- TypeScript 5.x (Frontend), Python 3.12+ with FastAPI (Backend), Node.js 20+ (Auth Server) + OpenAI ChatKit (Frontend), FastAPI (Backend), Better Auth (Auth Server), Qdrant (Vector DB), Docusaurus 3.x (003-chatkit-integration)
 
 ## Recent Changes
 - 001-physical-ai-book: Added TypeScript 5.x, Python 3.12+ (managed via `uv`) + Docusaurus 3.x, React 19, FastAPI, Node.js 20+, Better Auth, Express, Qdrant, PostgreSQL
+
+
+---
+
+## Skills
+
+Claude has access to specialized skills for domain-specific tasks. Use these skills when relevant.
+
+### Available Skills
+
+| Skill | Location | Use When |
+|-------|----------|----------|
+| **OpenAI Agents SDK** | `.claude/skills/openai-agents-sdk/` | Building AI agents, multi-agent systems, voice agents, guardrails |
+| **ChatKit Store** | `.claude/skills/chatkit-store/` | Implementing ChatKit Store, thread/item persistence |
+| **ChatKit Backend** | `.claude/skills/chatkit-backend/` | FastAPI server setup, model configuration, `/chatkit` endpoint |
+| **ChatKit Agent Memory** | `.claude/skills/chatkit-agent-memory/` | Conversation history, LiteLLM ID collision fix |
+| **ChatKit Frontend** | `.claude/skills/chatkit-frontend/` | React UI, useChatKit hook, themes, popup layouts |
+| **ChatKit Debug** | `.claude/skills/chatkit-debug/` | Troubleshooting errors, import issues, diagnostics |
+
+### How to Use Skills
+
+1. **Check the skill's `CLAUDE.md`** for interaction guidelines and part-based structure.
+2. **Consult the skill's `SKILL.md`** for reference code and patterns.
+3. **Respond with targeted output only** — do not dump the entire skill content.
+4. **Match the user's request to a specific Part** (A, B, C, or D) as defined in the skill.
+
+### Skill Behavior Rules
+
+- **DO NOT** generate all code examples from a skill at once.
+- **ONLY** provide the specific snippet or pattern the user requested.
+- **Reference the skill** when asked about its domain (e.g., "create an agent", "add guardrails").
+
+---

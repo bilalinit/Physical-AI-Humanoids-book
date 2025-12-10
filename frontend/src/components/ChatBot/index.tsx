@@ -1,100 +1,200 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { ChatKit, useChatKit } from '@openai/chatkit-react';
 
-interface RAGResponse {
-  output: string;
-  context_chunks: Array<{
-    filename: string;
-    text: string;
-    chunk_number: number;
-    score: number;
-  }>;
-  sources: string[];
-}
+// Define the ChatBot component with ChatKit integration
+const ChatBot: React.FC = () => {
+  // Determine color mode by checking the document class to avoid context errors
+  const [colorMode, setColorMode] = useState<'light' | 'dark'>('light');
 
-const ChatBot = () => {
-  const [query, setQuery] = useState('');
-  const [response, setResponse] = useState<RAGResponse | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    // Check for dark mode class on document element
+    const isDarkMode = document.documentElement.classList.contains('dark') ||
+      (document.documentElement.getAttribute('data-theme') === 'dark');
+    setColorMode(isDarkMode ? 'dark' : 'light');
 
-  const handleChatSubmit = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch('http://localhost:8000/api/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          user_query: query,
-          selected_text: null, // if any selected text
-          chat_history: [] // if implementing chat history
-        }),
+    // Watch for theme changes
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+          const isDark = document.documentElement.classList.contains('dark') ||
+            (document.documentElement.getAttribute('data-theme') === 'dark');
+          setColorMode(isDark ? 'dark' : 'light');
+        }
       });
+    });
 
-      if (!res.ok) {
-        throw new Error(`API request failed with status ${res.status}`);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class', 'data-theme']
+    });
+
+    return () => observer.disconnect();
+  }, []);
+
+  const [initialThread, setInitialThread] = useState<string | null>(null);
+  const [isReady, setIsReady] = useState(false);
+
+  // Initialize on component mount
+  useEffect(() => {
+    const savedThread = localStorage.getItem('chatkit-thread-id');
+    setInitialThread(savedThread);
+    setIsReady(true);
+  }, []); // This will run after the color mode detection effect
+
+  // State for ChatKit error handling
+  const [chatKitError, setChatKitError] = useState<string | null>(null);
+
+  // Configure ChatKit with error handling
+  // NOTE: ChatKit requires a specific backend implementation that matches its API expectations.
+  // The backend at http://localhost:8000 needs to be extended with ChatKit-compatible endpoints
+  // to properly handle thread management, message sending, and user authentication.
+  const { control } = useChatKit({
+    api: {
+      url: 'http://localhost:8000', // Base URL for our backend
+      domainKey: 'localhost', // Required for local development
+    },
+    initialThread: initialThread,
+    theme: {
+      colorScheme: colorMode, // Use Docusaurus color mode
+      color: {
+        grayscale: { hue: 220, tint: 6, shade: -1 },
+        accent: { primary: '#4cc9f0', level: 1 },
+      },
+      radius: 'round',
+    },
+    startScreen: {
+      greeting: 'Welcome! Ask me anything about the documentation.',
+      prompts: [
+        { label: 'Hello', prompt: 'Say hello and introduce yourself' },
+        { label: 'Help', prompt: 'What can you help me with?' },
+        { label: 'Documentation', prompt: 'Tell me about the project documentation' },
+      ],
+    },
+    composer: {
+      placeholder: 'Type a message about the documentation...',
+    },
+    onThreadChange: ({ threadId }) => {
+      if (threadId) {
+        localStorage.setItem('chatkit-thread-id', threadId);
       }
+    },
+    onError: ({ error }) => {
+      console.error('ChatKit error:', error);
+      setChatKitError(error.message || 'An error occurred with ChatKit');
+    },
+  });
 
-      const data: RAGResponse = await res.json();
-      setResponse(data);
-    } catch (error) {
-      console.error('Error:', error);
-      setError(error instanceof Error ? error.message : 'An unknown error occurred');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Wait for initialization
+  if (!isReady) {
+    return (
+      <div
+        style={{
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: colorMode === 'dark' ? 'var(--ifm-background-surface-color)' : 'var(--ifm-color-white)',
+        }}
+      >
+        <div>
+          <div>Loading chat interface...</div>
+        </div>
+      </div>
+    );
+  }
 
+  // Show error if ChatKit failed to initialize
+  if (chatKitError) {
+    return (
+      <div
+        style={{
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: colorMode === 'dark' ? 'var(--ifm-background-surface-color)' : 'var(--ifm-color-white)',
+          color: 'red',
+          padding: '20px',
+          textAlign: 'center'
+        }}
+      >
+        <div>
+          <div>Error loading chat interface</div>
+          <div style={{ fontSize: '14px', marginTop: '10px' }}>
+            {chatKitError}
+          </div>
+          <button
+            onClick={() => window.location.reload()}
+            style={{
+              marginTop: '15px',
+              padding: '8px 16px',
+              backgroundColor: '#4361ee',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Return the ChatKit component - fills available space
   return (
-    <div className="chatbot-container">
-      <div className="chat-input">
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Ask about the book content..."
-          onKeyPress={(e) => e.key === 'Enter' && handleChatSubmit()}
-        />
-        <button onClick={handleChatSubmit} disabled={loading}>
-          {loading ? 'Processing...' : 'Send'}
+    <div
+      style={{
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+        backgroundColor: colorMode === 'dark' ? 'var(--ifm-background-surface-color)' : 'var(--ifm-color-white)',
+      }}
+    >
+      {/* Header with New Chat button */}
+      <div
+        style={{
+          padding: '10px 16px',
+          borderBottom: '1px solid var(--ifm-color-emphasis-300)',
+          backgroundColor: colorMode === 'dark' ? 'var(--ifm-color-emphasis-100)' : 'var(--ifm-color-gray-100)',
+          display: 'flex',
+          justifyContent: 'flex-end',
+          alignItems: 'center',
+          flexShrink: 0,
+        }}
+      >
+        <button
+          onClick={() => {
+            localStorage.removeItem('chatkit-thread-id');
+            window.location.reload();
+          }}
+          style={{
+            padding: '6px 12px',
+            background: colorMode === 'dark' ? '#4361ee' : 'var(--ifm-color-emphasis-200)',
+            color: colorMode === 'dark' ? 'white' : 'var(--ifm-color-emphasis-900)',
+            border: '1px solid var(--ifm-color-emphasis-300)',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontSize: '12px',
+            fontWeight: 500,
+          }}
+        >
+          New Chat
         </button>
       </div>
 
-      {loading && <div className="loading">Processing your query...</div>}
-
-      {error && <div className="error">Error: {error}</div>}
-
-      {response && (
-        <div className="chat-response">
-          <div className="response-text">{response.output}</div>
-
-          {response.sources.length > 0 && (
-            <div className="sources-section">
-              <h4>Sources:</h4>
-              <ul>
-                {response.sources.map((source, idx) => (
-                  <li key={idx}>{source}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {response.context_chunks.length > 0 && (
-            <div className="context-section">
-              <h4>Context used:</h4>
-              {response.context_chunks.map((chunk, idx) => (
-                <div key={idx} className="context-chunk">
-                  <p><strong>File:</strong> {chunk.filename}</p>
-                  <p><strong>Relevance:</strong> {(chunk.score * 100).toFixed(1)}%</p>
-                  <p><strong>Text:</strong> {chunk.text.substring(0, 100)}...</p>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      {/* ChatKit component - fills remaining space */}
+      <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
+        <ChatKit
+          control={control}
+          style={{ height: '100%', width: '100%' }}
+        />
+      </div>
     </div>
   );
 };

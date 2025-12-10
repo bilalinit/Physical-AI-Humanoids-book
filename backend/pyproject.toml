@@ -13,6 +13,7 @@ dependencies = [
     "google-generativeai>=0.8.5",
     "openai>=2.9.0",
     "openai-agents>=0.6.2",
+    "openai-chatkit>=1.4.0",
     "passlib>=1.7.4",
     "pyjwt>=2.10.1",
     "python-dotenv>=1.2.1",
