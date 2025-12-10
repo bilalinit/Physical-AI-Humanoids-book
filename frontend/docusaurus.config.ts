@@ -9,6 +9,11 @@ const config: Config = {
   tagline: 'Bridging Generative AI with Hard Robotics for Embodied Intelligence',
   favicon: 'img/favicon.ico',
 
+  // Custom fields accessible via useDocusaurusContext()
+  customFields: {
+    apiUrl: process.env.BACKEND_URL || 'http://localhost:8000',
+  },
+
   // ChatKit CDN script - CRITICAL for ChatKit UI to render
   scripts: [
     {

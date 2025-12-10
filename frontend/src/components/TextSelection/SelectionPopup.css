@@ -1,0 +1,68 @@
+.selection-popup {
+  position: absolute;
+  z-index: 10000;
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  padding: 0;
+  margin: 0;
+  display: flex;
+  animation: fadeIn 0.2s ease-in;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.ask-ai-button {
+  background: rgba(66, 103, 178, 0.85);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+  min-height: 36px;
+}
+
+.ask-ai-button:hover {
+  background: rgba(50, 80, 150, 0.95);
+  transform: translateY(-1px);
+}
+
+.ask-ai-button:active {
+  transform: translateY(0);
+}
+
+.ai-icon {
+  font-size: 16px;
+}
+
+/* Dark mode support */
+html[data-theme='dark'] .selection-popup {
+  background: rgba(30, 30, 30, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+html[data-theme='dark'] .ask-ai-button {
+  background: rgba(86, 123, 198, 0.85);
+}
+
+html[data-theme='dark'] .ask-ai-button:hover {
+  background: rgba(70, 100, 170, 0.95);
+}

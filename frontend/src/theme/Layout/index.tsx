@@ -6,26 +6,20 @@ import type { Props } from '@theme/Layout';
 // Floating ChatBot button component
 const FloatingChatButton = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const [selectedText, setSelectedText] = useState('');
+  const [pendingMessage, setPendingMessage] = useState<string | null>(null);
 
-  // Handle text selection
+  // Listen for "Ask AI" events from text selection
   useEffect(() => {
-    const handleSelection = () => {
-      const text = window.getSelection()?.toString().trim();
-      if (text && text.length > 10) { // Only show if meaningful text is selected
-        setSelectedText(text);
-      } else {
-        setSelectedText('');
+    const handleAskAIEvent = (event: CustomEvent<{ message: string; text: string }>) => {
+      if (event.detail && event.detail.message) {
+        // Set the pending message and open the chat
+        setPendingMessage(event.detail.message);
+        setIsOpen(true);
       }
     };
 
-    document.addEventListener('mouseup', handleSelection);
-    document.addEventListener('keyup', handleSelection);
-
-    return () => {
-      document.removeEventListener('mouseup', handleSelection);
-      document.removeEventListener('keyup', handleSelection);
-    };
+    window.addEventListener('askAIWithSelection', handleAskAIEvent as EventListener);
+    return () => window.removeEventListener('askAIWithSelection', handleAskAIEvent as EventListener);
   }, []);
 
   // Close chat when clicking outside
@@ -45,35 +39,13 @@ const FloatingChatButton = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen]);
 
+  // Clear pending message after it's been processed
+  const handleMessageSent = () => {
+    setPendingMessage(null);
+  };
+
   return (
     <>
-      {/* Floating "Ask AI" button for selected text */}
-      {selectedText && (
-        <div
-          style={{
-            position: 'fixed',
-            top: '10px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: 10000,
-            backgroundColor: '#4361ee',
-            color: 'white',
-            padding: '8px 16px',
-            borderRadius: '20px',
-            cursor: 'pointer',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-            fontSize: '14px',
-            fontWeight: '500',
-          }}
-          onClick={() => {
-            setIsOpen(true);
-            // In a real implementation, this would send the selected text to the chat
-            // For now, we'll just open the chat
-          }}
-        >
-          Ask AI about selected text
-        </div>
-      )}
 
       {/* Floating ChatBot button */}
       <div
@@ -151,7 +123,10 @@ const FloatingChatButton = () => {
               </button>
             </div>
             <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
-              <ChatBot />
+              <ChatBot
+                pendingMessage={pendingMessage}
+                onMessageSent={handleMessageSent}
+              />
             </div>
           </div>
         )}

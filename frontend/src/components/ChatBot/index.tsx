@@ -1,8 +1,29 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ChatKit, useChatKit } from '@openai/chatkit-react';
+import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
+
+interface ChatBotProps {
+  initialSelectedText?: string;
+  pendingMessage?: string | null;
+  onMessageSent?: () => void;
+}
 
 // Define the ChatBot component with ChatKit integration
-const ChatBot: React.FC = () => {
+const ChatBot: React.FC<ChatBotProps> = ({ initialSelectedText, pendingMessage, onMessageSent }) => {
+  // Get API URL from Docusaurus config
+  const { siteConfig } = useDocusaurusContext();
+  const apiUrl = (siteConfig.customFields?.apiUrl as string) || 'http://localhost:8000';
+
+  // Extract domain for ChatKit domainKey
+  const getDomainKey = (url: string): string => {
+    try {
+      const hostname = new URL(url).hostname;
+      return hostname;
+    } catch {
+      return 'localhost';
+    }
+  };
+
   // Determine color mode by checking the document class to avoid context errors
   const [colorMode, setColorMode] = useState<'light' | 'dark'>('light');
 
@@ -45,13 +66,10 @@ const ChatBot: React.FC = () => {
   const [chatKitError, setChatKitError] = useState<string | null>(null);
 
   // Configure ChatKit with error handling
-  // NOTE: ChatKit requires a specific backend implementation that matches its API expectations.
-  // The backend at http://localhost:8000 needs to be extended with ChatKit-compatible endpoints
-  // to properly handle thread management, message sending, and user authentication.
-  const { control } = useChatKit({
+  const { control, setComposerValue, focusComposer } = useChatKit({
     api: {
-      url: 'http://localhost:8000', // Base URL for our backend
-      domainKey: 'localhost', // Required for local development
+      url: apiUrl,
+      domainKey: getDomainKey(apiUrl),
     },
     initialThread: initialThread,
     theme: {
@@ -83,6 +101,23 @@ const ChatBot: React.FC = () => {
       setChatKitError(error.message || 'An error occurred with ChatKit');
     },
   });
+
+  // Pre-fill composer when pendingMessage (selected text) is provided using ChatKit API
+  useEffect(() => {
+    if (pendingMessage && isReady && setComposerValue) {
+      // Extract just the selected text without "Explain this:" prefix
+      const selectedText = pendingMessage.replace('Explain this: ', '');
+      // Format with context marker for backend
+      const formattedMessage = `[CONTEXT: ${selectedText}] Explain this`;
+
+      // Use ChatKit's proper API to set the composer value
+      setComposerValue({ text: formattedMessage });
+      if (focusComposer) {
+        focusComposer();
+      }
+      onMessageSent?.();
+    }
+  }, [pendingMessage, isReady, setComposerValue, focusComposer, onMessageSent]);
 
   // Wait for initialization
   if (!isReady) {

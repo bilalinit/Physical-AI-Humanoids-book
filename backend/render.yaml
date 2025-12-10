@@ -1,0 +1,42 @@
+# Render deployment configuration for the backend
+# See https://render.com/docs/yaml-spec for documentation
+
+services:
+  - type: web
+    name: hackathon-book-backend
+    runtime: python
+    region: oregon  # or your preferred region
+    plan: free  # Change to 'starter' or higher for production
+
+    # Build settings
+    buildCommand: |
+      pip install uv
+      uv sync
+
+    # Start command
+    startCommand: uvicorn src.backend.main:app --host 0.0.0.0 --port $PORT
+
+    # Environment variables (set values in Render dashboard)
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12"
+      - key: GEMINI_API_KEY
+        sync: false  # Set manually in dashboard for security
+      - key: QDRANT_URL
+        sync: false  # Set manually in dashboard for security
+      - key: QDRANT_API_KEY
+        sync: false  # Set manually in dashboard for security
+      - key: QDRANT_COLLECTION_NAME
+        value: "book_content"
+      - key: SEARCH_LIMIT
+        value: "5"
+      - key: JWT_SECRET_KEY
+        sync: false  # Set manually in dashboard for security
+      - key: FRONTEND_URL
+        sync: false  # Your deployed frontend URL for CORS
+
+    # Health check
+    healthCheckPath: /docs
+
+    # Auto-deploy when connected to Git
+    autoDeploy: true

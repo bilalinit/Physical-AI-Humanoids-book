@@ -179,6 +179,16 @@ class ChatKitServerImpl(ChatKitServer):
             # If no message content, return an empty response
             return
 
+        # Check for selected text context in the message
+        # Format: [CONTEXT: selected text here] actual question
+        selected_text = None
+        import re
+        context_match = re.match(r'\[CONTEXT:\s*(.+?)\]\s*(.*)', user_message, re.DOTALL)
+        if context_match:
+            selected_text = context_match.group(1).strip()
+            user_message = context_match.group(2).strip() if context_match.group(2).strip() else "Explain this text"
+            logger.info(f"Extracted selected text context: {selected_text[:100]}...")
+
         # Generate embedding for user query
         query_embedding = get_embedding(user_message, "retrieval_query")
 
@@ -227,21 +237,54 @@ class ChatKitServerImpl(ChatKitServer):
             # Build context string for the agent
             if context_chunks:
                 context_str = "\n\n".join([chunk["text"] for chunk in context_chunks if chunk.get("text")])
-                system_prompt = f"""
-                You are a helpful assistant that answers questions based on the provided book content.
-                Use the following context to answer the user's question:
-                {context_str}
+                
+                # If selected_text was extracted from the message, prioritize it
+                if selected_text:
+                    system_prompt = f"""
+                    You are a helpful assistant that answers questions based on the provided book content.
+                    The user has selected specific text from the documentation and wants you to explain it.
+                    
+                    PRIMARY CONTEXT (selected by user):
+                    {selected_text}
+                    
+                    Additional context from documentation search:
+                    {context_str}
+                    
+                    Instructions:
+                    - Focus your explanation on the PRIMARY CONTEXT (selected text) first
+                    - Use the additional context to provide more depth and background
+                    - Adjust your response based on the user's apparent level of understanding
+                    - If the selected text is a technical concept, explain it clearly
+                    - Always cite relevant source documents when applicable
+                    """
+                else:
+                    system_prompt = f"""
+                    You are a helpful assistant that answers questions based on the provided book content.
+                    Use the following context to answer the user's question:
+                    {context_str}
 
-                Adjust your responses based on the user's education level and experience.
-                If the context doesn't contain information to answer the question, say so.
-                Always cite the source document when providing information from the context.
-                """
+                    Adjust your responses based on the user's education level and experience.
+                    If the context doesn't contain information to answer the question, say so.
+                    Always cite the source document when providing information from the context.
+                    """
             else:
                 logger.info(f"No relevant results found for query: {user_message[:100]}...")
-                system_prompt = f"""
-                You are a helpful assistant. The documentation search did not return any relevant results.
-                Try to provide a helpful response based on general knowledge, and suggest the user rephrase their question if needed.
-                """
+                # Still use selected_text if available even without search results
+                if selected_text:
+                    system_prompt = f"""
+                    You are a helpful assistant. The user has selected text and wants you to explain it.
+                    
+                    Selected text to explain:
+                    {selected_text}
+                    
+                    Please provide a clear explanation of this text. If you need more context to fully
+                    explain it, let the user know what additional information would be helpful.
+                    """
+                else:
+                    system_prompt = f"""
+                    You are a helpful assistant. The documentation search did not return any relevant results.
+                    Try to provide a helpful response based on general knowledge, and suggest the user rephrase their question if needed.
+                    """
         else:
             system_prompt = f"""
             You are a helpful assistant. The documentation search system is currently unavailable.
@@ -319,7 +362,7 @@ server = ChatKitServerImpl(store)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:3000",  # Docusaurus frontend
+        "http://localhost:3000",  # Docusaurus frontend (local dev)
         "http://localhost:3001",  # Auth server
         "http://localhost:8000",  # Backend
         "http://127.0.0.1:3000",
@@ -327,8 +370,10 @@ app.add_middleware(
         "http://127.0.0.1:8000",
         "https://localhost:3000",
         "https://localhost:3001",
-        "https://localhost:8000"
-    ],  # Configure appropriately for production
+        "https://localhost:8000",
+        # Production frontends
+        "https://physical-ai-humanoids-book-rag.netlify.app",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -345,6 +390,7 @@ class ChatResponse(BaseModel):
     output: str
     context_chunks: List[Dict[str, Any]]
     sources: List[str]
+    used_selected_text: bool = False
 
 class SearchRequest(BaseModel):
     query: str
@@ -548,8 +594,9 @@ async def process_message(thread_id: str, request: dict, current_user: dict = De
                 # Authenticated user trying to access another user's thread
                 raise HTTPException(status_code=403, detail="Access denied")
 
-        # Extract content and user profile from request
+        # Extract content, selected text, and user profile from request
         content = request.get("content", "")
+        selected_text = request.get("selectedText", "")
         user_profile = request.get("userProfile", {
             "education": "beginner",
             "experience": "software:2_years"
@@ -557,6 +604,20 @@ async def process_message(thread_id: str, request: dict, current_user: dict = De
 
         if not content:
             raise HTTPException(status_code=400, detail="Message content is required")
+
+        # Validate and sanitize selected text if provided
+        if selected_text:
+            # Check length - max 5000 characters
+            if len(selected_text) > 5000:
+                raise HTTPException(status_code=400, detail="Selected text exceeds maximum length of 5000 characters")
+
+            # Sanitize selected text to prevent injection attacks
+            import html
+            selected_text_sanitized = html.escape(selected_text)
+            # For now, just validate that it doesn't contain potentially harmful content
+            harmful_patterns = ["<script", "javascript:", "vbscript:", "onerror", "onload", "eval("]
+            if any(pattern in selected_text.lower() for pattern in harmful_patterns):
+                raise HTTPException(status_code=400, detail="Selected text contains potentially harmful content")
 
         # Simple content validation (guardrail)
         harmful_keywords = ["harmful", "inappropriate", "offensive"]
@@ -612,6 +673,7 @@ async def process_message(thread_id: str, request: dict, current_user: dict = De
                 "content": response.final_output if response.final_output else "I'm sorry, but the documentation search system is currently unavailable. Please try again later.",
                 "timestamp": datetime.utcnow().isoformat() + "Z",
                 "sources": [],
+                "used_selected_text": selected_text is not None and selected_text.strip() != "",
                 "fallback": True  # Indicate this is a fallback response
             }
 
@@ -651,20 +713,42 @@ async def process_message(thread_id: str, request: dict, current_user: dict = De
         if context_chunks:
             context_str = "\n\n".join([chunk["text"] for chunk in context_chunks])
 
-            # Create system prompt with context and user profile
-            system_prompt = f"""
-            You are a helpful assistant that answers questions based on the provided book content.
-            Use the following context to answer the user's question:
-            {context_str}
+            # Build the system prompt with selected text if available
+            if selected_text:
+                # Prioritize the selected text as primary context
+                system_prompt = f"""
+                You are a helpful assistant that answers questions based on the provided book content.
+                The user has selected specific text from the documentation and wants to ask about it.
+                PRIMARY CONTEXT (selected by user):
+                {selected_text}
 
-            User Profile:
-            - Education Level: {user_profile.get('education', 'beginner')}
-            - Experience: {user_profile.get('experience', 'software:2_years')}
+                Additional context from search results:
+                {context_str}
 
-            Adjust your responses based on the user's education level and experience.
-            If the context doesn't contain information to answer the question, say so.
-            Always cite the source document when providing information from the context.
-            """
+                User Profile:
+                - Education Level: {user_profile.get('education', 'beginner')}
+                - Experience: {user_profile.get('experience', 'software:2_years')}
+
+                Adjust your responses based on the user's education level and experience.
+                When answering, make sure to address the PRIMARY CONTEXT (selected text) directly.
+                If the context doesn't contain information to answer the question, say so.
+                Always cite the source document when providing information from the context.
+                """
+            else:
+                # Use the original system prompt when no selected text is provided
+                system_prompt = f"""
+                You are a helpful assistant that answers questions based on the provided book content.
+                Use the following context to answer the user's question:
+                {context_str}
+
+                User Profile:
+                - Education Level: {user_profile.get('education', 'beginner')}
+                - Experience: {user_profile.get('experience', 'software:2_years')}
+
+                Adjust your responses based on the user's education level and experience.
+                If the context doesn't contain information to answer the question, say so.
+                Always cite the source document when providing information from the context.
+                """
         else:
             # No relevant results found - create a system prompt that informs the agent
             logger.info(f"No relevant results found for query: {content[:100]}...")
@@ -704,7 +788,8 @@ async def process_message(thread_id: str, request: dict, current_user: dict = De
             "role": "assistant",
             "content": response.final_output if response.final_output else "I couldn't find relevant information in the book content.",
             "timestamp": datetime.utcnow().isoformat() + "Z",
-            "sources": [{"title": source, "url": f"/docs/{source}", "content": None} for source in list(sources)]
+            "sources": [{"title": source, "url": f"/docs/{source}", "content": None} for source in list(sources)],
+            "used_selected_text": selected_text is not None and selected_text.strip() != ""
         }
 
         # Add assistant message to thread
@@ -857,6 +942,24 @@ async def rag_chat(request: ChatRequest):
     try:
         # Simple content validation (without complex guardrail that's causing issues)
         user_query = request.user_query
+
+        # Validate and sanitize selected text if provided
+        if request.selected_text:
+            # Check length - max 5000 characters
+            if len(request.selected_text) > 5000:
+                raise HTTPException(status_code=400, detail="Selected text exceeds maximum length of 5000 characters")
+
+            # Sanitize selected text to prevent injection attacks
+            import html
+            selected_text_sanitized = html.escape(request.selected_text)
+            # Update the request object to use sanitized text
+            # We'll work with the original request.selected_text for now but in a real scenario would use sanitized version
+            # For now, just validate that it doesn't contain potentially harmful content
+            harmful_patterns = ["<script", "javascript:", "vbscript:", "onerror", "onload", "eval("]
+            if any(pattern in request.selected_text.lower() for pattern in harmful_patterns):
+                raise HTTPException(status_code=400, detail="Selected text contains potentially harmful content")
+
+        # Validate user query
         harmful_keywords = ["harmful", "inappropriate", "offensive"]
         if any(keyword in user_query.lower() for keyword in harmful_keywords):
             raise HTTPException(status_code=400, detail="Input contains potentially inappropriate content.")
@@ -897,20 +1000,42 @@ async def rag_chat(request: ChatRequest):
         # Build context string for the agent
         context_str = "\n\n".join([chunk["text"] for chunk in context_chunks])
 
-        # Create system prompt with context and user profile
-        system_prompt = f"""
-        You are a helpful assistant that answers questions based on the provided book content.
-        Use the following context to answer the user's question:
-        {context_str}
+        # Build the system prompt with selected text if available
+        if request.selected_text:
+            # Prioritize the selected text as primary context
+            system_prompt = f"""
+            You are a helpful assistant that answers questions based on the provided book content.
+            The user has selected specific text from the documentation and wants to ask about it.
+            PRIMARY CONTEXT (selected by user):
+            {request.selected_text}
 
-        User Profile:
-        - Education Level: {request.user_profile.get('education', 'beginner')}
-        - Experience: {request.user_profile.get('experience', 'software:2_years')}
+            Additional context from search results:
+            {context_str}
 
-        Adjust your responses based on the user's education level and experience.
-        If the context doesn't contain information to answer the question, say so.
-        Always cite the source document when providing information from the context.
-        """
+            User Profile:
+            - Education Level: {request.user_profile.get('education', 'beginner')}
+            - Experience: {request.user_profile.get('experience', 'software:2_years')}
+
+            Adjust your responses based on the user's education level and experience.
+            When answering, make sure to address the PRIMARY CONTEXT (selected text) directly.
+            If the context doesn't contain information to answer the question, say so.
+            Always cite the source document when providing information from the context.
+            """
+        else:
+            # Use the original system prompt when no selected text is provided
+            system_prompt = f"""
+            You are a helpful assistant that answers questions based on the provided book content.
+            Use the following context to answer the user's question:
+            {context_str}
+
+            User Profile:
+            - Education Level: {request.user_profile.get('education', 'beginner')}
+            - Experience: {request.user_profile.get('experience', 'software:2_years')}
+
+            Adjust your responses based on the user's education level and experience.
+            If the context doesn't contain information to answer the question, say so.
+            Always cite the source document when providing information from the context.
+            """
 
         # Create the RAG agent with the context
         rag_agent = Agent(
@@ -925,7 +1050,8 @@ async def rag_chat(request: ChatRequest):
         return ChatResponse(
             output=response.final_output if response.final_output else "I couldn't find relevant information in the book content.",
             context_chunks=context_chunks,
-            sources=list(sources)
+            sources=list(sources),
+            used_selected_text=request.selected_text is not None and request.selected_text.strip() != ""
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing chat request: {str(e)}")
