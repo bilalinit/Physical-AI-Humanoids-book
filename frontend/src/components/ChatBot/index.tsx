@@ -69,7 +69,7 @@ const ChatBot: React.FC<ChatBotProps> = ({ initialSelectedText, pendingMessage, 
   const { control, setComposerValue, focusComposer } = useChatKit({
     api: {
       url: apiUrl,
-      domainKey: getDomainKey(apiUrl),
+      domainKey: 'localhost', // Use localhost for custom backend to bypass OpenAI domain verification
     },
     initialThread: initialThread,
     theme: {
