@@ -218,6 +218,8 @@ See `.specify/memory/constitution.md` for code quality, testing, performance, se
 - PostgreSQL (User/Chat History), Qdrant (Vectors), Markdown files (Documentation content) (001-physical-ai-book)
 - TypeScript 5.x (Frontend), Python 3.12+ with FastAPI (Backend), Node.js 20+ (Auth Server) + OpenAI ChatKit (Frontend), FastAPI (Backend), Better Auth (Auth Server), Qdrant (Vector DB), Docusaurus 3.x (003-chatkit-integration)
 - TypeScript 5.x (Frontend), Python 3.12+ (Backend), Node.js 20+ (Auth Server) + Docusaurus 3.x, React 19, FastAPI, OpenAI Agents SDK, Qdrant, Better Auth (004-text-selection)
+- TypeScript 5.x, React 19 + Docusaurus 3.x, React, Better Auth, Infima CSS framework (006-adding-ui-design)
+- localStorage for session management, N/A for component styling (006-adding-ui-design)
 
 ## Recent Changes
 - 001-physical-ai-book: Added TypeScript 5.x, Python 3.12+ (managed via `uv`) + Docusaurus 3.x, React 19, FastAPI, Node.js 20+, Better Auth, Express, Qdrant, PostgreSQL

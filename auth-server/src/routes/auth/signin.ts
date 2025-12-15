@@ -26,20 +26,29 @@ export default async (req: Request, res: Response) => {
     // Log successful authentication
     logAuthentication(session.user, 'signin', true);
 
+    // Fetch full user details from database to ensure custom fields are included
+    // Better Auth session object might not have all custom fields by default
+    const userResult = await auth.options.database.query(
+      `SELECT * FROM "user" WHERE id = $1`,
+      [session.user.id]
+    );
+
+    const fullUser = userResult.rows[0] || session.user;
+
     // Return success response with session
     res.status(200).json({
       success: true,
       session: {
         user: {
-          id: session.user.id,
-          email: session.user.email,
-          name: session.user.name,
-          createdAt: session.user.createdAt,
-          educationLevel: session.user.educationLevel,
-          programmingExperience: session.user.programmingExperience,
-          softwareBackground: session.user.softwareBackground,
-          hardwareBackground: session.user.hardwareBackground,
-          roboticsBackground: session.user.roboticsBackground
+          id: fullUser.id,
+          email: fullUser.email,
+          name: fullUser.name,
+          createdAt: fullUser.createdAt,
+          educationLevel: fullUser.educationLevel,
+          programmingExperience: fullUser.programmingExperience,
+          softwareBackground: fullUser.softwareBackground,
+          hardwareBackground: fullUser.hardwareBackground,
+          roboticsBackground: fullUser.roboticsBackground
         },
         // Include session token in response for client-side storage if needed
         // In most cases, Better Auth handles this via cookies

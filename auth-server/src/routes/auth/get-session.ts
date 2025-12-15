@@ -22,20 +22,29 @@ export default async (req: Request, res: Response) => {
     const user = session.user as any;
     logAuthentication(user, 'get-session', true);
 
+    // Fetch full user details from database to ensure custom fields are included
+    // Better Auth session object might not have all custom fields by default
+    const userResult = await auth.options.database.query(
+      `SELECT * FROM "user" WHERE id = $1`,
+      [user.id]
+    );
+
+    const fullUser = userResult.rows[0] || user;
+
     // Return session data
     res.status(200).json({
       success: true,
       session: {
         user: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          createdAt: user.createdAt,
-          educationLevel: user.educationLevel,
-          programmingExperience: user.programmingExperience,
-          softwareBackground: user.softwareBackground,
-          hardwareBackground: user.hardwareBackground,
-          roboticsBackground: user.roboticsBackground
+          id: fullUser.id,
+          email: fullUser.email,
+          name: fullUser.name,
+          createdAt: fullUser.createdAt,
+          educationLevel: fullUser.educationLevel,
+          programmingExperience: fullUser.programmingExperience,
+          softwareBackground: fullUser.softwareBackground,
+          hardwareBackground: fullUser.hardwareBackground,
+          roboticsBackground: fullUser.roboticsBackground
         },
         expiresAt: session.expiresAt
       }

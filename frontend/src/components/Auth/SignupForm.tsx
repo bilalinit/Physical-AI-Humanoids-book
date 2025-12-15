@@ -4,6 +4,8 @@
 import React, { useState, ChangeEvent, FormEvent } from 'react';
 import authService from '@site/src/services/auth';
 import { validateSignupForm, SignupFormData } from './validation';
+import styles from './SignupForm.module.css';
+import Link from '@docusaurus/Link';
 
 interface SignupFormProps {
   onSignupSuccess?: (data: any) => void;
@@ -102,119 +104,123 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSignupSuccess }) => {
   };
 
   return (
-    <div className="signup-form-container">
-      <h2>Create Account</h2>
+    <div className={styles.container}>
+      <div className={styles.card}>
+        <h2 className={styles.title}>Create Account</h2>
 
-      {errors.general && (
-        <div className="error-message" style={{ color: 'red', marginBottom: '10px' }}>
-          {errors.general}
-        </div>
-      )}
+        {errors.general && (
+          <div className={styles.generalError}>
+            {errors.general}
+          </div>
+        )}
 
-      <form onSubmit={handleSubmit} className="signup-form">
-        <div className="form-group">
-          <label htmlFor="name">Full Name *</label>
-          <input
-            type="text"
-            id="name"
-            name="name"
-            value={formData.name}
-            onChange={handleChange}
-            className={errors.name ? 'error' : ''}
-            placeholder="Enter your full name"
-          />
-          {errors.name && <div className="error">{errors.name}</div>}
-        </div>
+        <form onSubmit={handleSubmit}>
+          <div className={styles.formGroup}>
+            <label htmlFor="name" className={styles.label}>Full Name *</label>
+            <input
+              type="text"
+              id="name"
+              name="name"
+              value={formData.name}
+              onChange={handleChange}
+              className={`${styles.input} ${errors.name ? styles.inputError : ''}`}
+              placeholder="Enter your full name"
+            />
+            {errors.name && <div className={styles.errorMessage}>{errors.name}</div>}
+          </div>
 
-        <div className="form-group">
-          <label htmlFor="email">Email *</label>
-          <input
-            type="email"
-            id="email"
-            name="email"
-            value={formData.email}
-            onChange={handleChange}
-            className={errors.email ? 'error' : ''}
-            placeholder="Enter your email"
-          />
-          {errors.email && <div className="error">{errors.email}</div>}
-        </div>
+          <div className={styles.formGroup}>
+            <label htmlFor="email" className={styles.label}>Email *</label>
+            <input
+              type="email"
+              id="email"
+              name="email"
+              value={formData.email}
+              onChange={handleChange}
+              className={`${styles.input} ${errors.email ? styles.inputError : ''}`}
+              placeholder="Enter your email"
+            />
+            {errors.email && <div className={styles.errorMessage}>{errors.email}</div>}
+          </div>
 
-        <div className="form-group">
-          <label htmlFor="password">Password *</label>
-          <input
-            type="password"
-            id="password"
-            name="password"
-            value={formData.password}
-            onChange={handleChange}
-            className={errors.password ? 'error' : ''}
-            placeholder="Enter your password (min 8 characters)"
-          />
-          {errors.password && <div className="error">{errors.password}</div>}
-        </div>
+          <div className={styles.formGroup}>
+            <label htmlFor="password" className={styles.label}>Password *</label>
+            <input
+              type="password"
+              id="password"
+              name="password"
+              value={formData.password}
+              onChange={handleChange}
+              className={`${styles.input} ${errors.password ? styles.inputError : ''}`}
+              placeholder="Enter your password (min 8 characters)"
+            />
+            {errors.password && <div className={styles.errorMessage}>{errors.password}</div>}
+          </div>
 
-        <div className="form-group">
-          <label htmlFor="educationLevel">Education Level</label>
-          <select
-            id="educationLevel"
-            name="educationLevel"
-            value={formData.educationLevel}
-            onChange={handleChange}
+          <div className={styles.formGroup}>
+            <label htmlFor="educationLevel" className={styles.label}>Education Level</label>
+            <select
+              id="educationLevel"
+              name="educationLevel"
+              value={formData.educationLevel}
+              onChange={handleChange}
+              className={styles.select}
+            >
+              <option value="">Select your education level</option>
+              {educationLevels.map(level => (
+                <option key={level} value={level}>{level}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className={styles.formGroup}>
+            <label htmlFor="programmingExperience" className={styles.label}>Programming Experience</label>
+            <select
+              id="programmingExperience"
+              name="programmingExperience"
+              value={formData.programmingExperience}
+              onChange={handleChange}
+              className={styles.select}
+            >
+              <option value="">Select your programming experience</option>
+              {programmingExperiences.map(exp => (
+                <option key={exp} value={exp}>{exp}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className={styles.formGroup}>
+            <label htmlFor="roboticsBackground" className={styles.label}>Robotics Background</label>
+            <select
+              id="roboticsBackground"
+              name="roboticsBackground"
+              value={formData.roboticsBackground}
+              onChange={handleChange}
+              className={styles.select}
+            >
+              <option value="">Select your robotics background</option>
+              {roboticsBackgrounds.map(bg => (
+                <option key={bg} value={bg}>{bg}</option>
+              ))}
+            </select>
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className={`${styles.button} ${loading ? styles.buttonLoading : ''}`}
           >
-            <option value="">Select your education level</option>
-            {educationLevels.map(level => (
-              <option key={level} value={level}>{level}</option>
-            ))}
-          </select>
-        </div>
+            {loading && (
+              <span className={styles.spinner}></span>
+            )}
+            {loading ? 'Creating Account...' : 'Sign Up'}
+          </button>
 
-        <div className="form-group">
-          <label htmlFor="programmingExperience">Programming Experience</label>
-          <select
-            id="programmingExperience"
-            name="programmingExperience"
-            value={formData.programmingExperience}
-            onChange={handleChange}
-          >
-            <option value="">Select your programming experience</option>
-            {programmingExperiences.map(exp => (
-              <option key={exp} value={exp}>{exp}</option>
-            ))}
-          </select>
-        </div>
-
-        <div className="form-group">
-          <label htmlFor="roboticsBackground">Robotics Background</label>
-          <select
-            id="roboticsBackground"
-            name="roboticsBackground"
-            value={formData.roboticsBackground}
-            onChange={handleChange}
-          >
-            <option value="">Select your robotics background</option>
-            {roboticsBackgrounds.map(bg => (
-              <option key={bg} value={bg}>{bg}</option>
-            ))}
-          </select>
-        </div>
-
-        <button
-          type="submit"
-          disabled={loading}
-          className="signup-button"
-          style={{
-            padding: '10px 20px',
-            backgroundColor: loading ? '#ccc' : '#007cba',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: loading ? 'not-allowed' : 'pointer'
-          }}
-        >
-          {loading ? 'Creating Account...' : 'Sign Up'}
-        </button>
-      </form>
+          <Link to="/signin" className={styles.navLink}>
+            Already have an account? Sign In
+          </Link>
+        </form>
+      </div>
     </div>
   );
 };

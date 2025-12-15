@@ -3,45 +3,75 @@
  */
 import React from 'react';
 import { useAuth } from '../../hooks/useAuth';
+import styles from './Profile.module.css';
 
 const Profile: React.FC = () => {
   const { user, loading, error } = useAuth();
 
   if (loading) {
-    return <div>Loading profile...</div>;
+    return (
+      <div className={styles.container}>
+        <div className={styles.card}>
+          <h2 className={styles.title}>User Profile</h2>
+          <div className={styles.loading}>
+            <div className={styles.spinner}></div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (!user) {
-    return <div>Please sign in to view your profile.</div>;
+    return (
+      <div className={styles.container}>
+        <div className={styles.card}>
+          <h2 className={styles.title}>User Profile</h2>
+          <div>Please sign in to view your profile.</div>
+        </div>
+      </div>
+    );
   }
 
   if (error) {
-    return <div>Error loading profile: {error}</div>;
+    return (
+      <div className={styles.container}>
+        <div className={styles.card}>
+          <h2 className={styles.title}>User Profile</h2>
+          <div className={styles.error}>Error loading profile: {error}</div>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="profile-container">
-      <h2>User Profile</h2>
+    <div className={styles.container}>
+      <div className={styles.card}>
+        <h2 className={styles.title}>User Profile</h2>
 
-      <div className="profile-display">
-        <div className="profile-info" style={{ lineHeight: '2' }}>
-          <div className="profile-field">
-            <strong>Name:</strong> {user.name}
+        <div className={styles.profileInfo}>
+          <div className={styles.field}>
+            <span className={styles.label}>Name:</span>
+            <span className={styles.value}>{user.name}</span>
           </div>
-          <div className="profile-field">
-            <strong>Email:</strong> {user.email}
+          <div className={styles.field}>
+            <span className={styles.label}>Email:</span>
+            <span className={styles.value}>{user.email}</span>
           </div>
-          <div className="profile-field">
-            <strong>Education Level:</strong> {user.educationLevel || 'Not specified'}
+          <div className={styles.field}>
+            <span className={styles.label}>Education Level:</span>
+            <span className={styles.value}>{user.educationLevel || 'Not specified'}</span>
           </div>
-          <div className="profile-field">
-            <strong>Programming Experience:</strong> {user.programmingExperience || 'Not specified'}
+          <div className={styles.field}>
+            <span className={styles.label}>Programming Experience:</span>
+            <span className={styles.value}>{user.programmingExperience || 'Not specified'}</span>
           </div>
-          <div className="profile-field">
-            <strong>Robotics Background:</strong> {user.roboticsBackground || 'Not specified'}
+          <div className={styles.field}>
+            <span className={styles.label}>Robotics Background:</span>
+            <span className={styles.value}>{user.roboticsBackground || 'Not specified'}</span>
           </div>
-          <div className="profile-field">
-            <strong>Member Since:</strong> {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
+          <div className={styles.field}>
+            <span className={styles.label}>Member Since:</span>
+            <span className={styles.value}>{user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}</span>
           </div>
         </div>
       </div>

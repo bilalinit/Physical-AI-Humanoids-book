@@ -1,0 +1,135 @@
+/* Container for the entire navbar user menu */
+.container {
+  display: flex;
+  align-items: center;
+  height: 100%;
+}
+
+/* Sign in link styling */
+.signInLink {
+  color: var(--ifm-navbar-link-color);
+  text-decoration: none;
+  padding: var(--ifm-navbar-item-padding-vertical) var(--ifm-navbar-item-padding-horizontal);
+  transition: color var(--ifm-transition-fast) ease;
+}
+
+.signInLink:hover {
+  color: var(--ifm-navbar-link-hover-color);
+  text-decoration: none;
+}
+
+/* User dropdown trigger (for authenticated users) */
+.dropdownTrigger {
+  background: none;
+  border: none;
+  color: var(--ifm-navbar-link-color);
+  padding: var(--ifm-navbar-item-padding-vertical) var(--ifm-navbar-item-padding-horizontal);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-decoration: none;
+  transition: color var(--ifm-transition-fast) ease;
+}
+
+.dropdownTrigger:hover {
+  color: var(--ifm-navbar-link-hover-color);
+}
+
+/* User name styling */
+.userName {
+  font-weight: var(--ifm-font-weight-semibold);
+  white-space: nowrap;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* User icon styling */
+.userIcon {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background-color: var(--ifm-color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: var(--ifm-font-weight-bold);
+  color: white;
+}
+
+/* Dropdown menu */
+.dropdownMenu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background-color: var(--ifm-background-surface-color);
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: var(--ifm-global-radius);
+  box-shadow: var(--ifm-global-shadow-md);
+  min-width: 160px;
+  z-index: 1000;
+  list-style: none;
+  margin: 0;
+  padding: 0.5rem 0;
+}
+
+/* Dropdown item */
+.dropdownItem {
+  margin: 0;
+}
+
+.dropdownItem a,
+.dropdownItem button {
+  display: block;
+  width: 100%;
+  padding: 0.5rem 1rem;
+  color: var(--ifm-color-emphasis-800);
+  text-decoration: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color var(--ifm-transition-fast) ease;
+}
+
+.dropdownItem a:hover,
+.dropdownItem button:hover {
+  background-color: var(--ifm-color-emphasis-100);
+  text-decoration: none;
+}
+
+.dropdownItem button {
+  width: 100%;
+  text-align: left;
+}
+
+/* Dropdown toggle button */
+.dropdownToggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background-color var(--ifm-transition-fast) ease;
+}
+
+.dropdownToggle:hover {
+  background-color: var(--ifm-color-emphasis-200);
+}
+
+/* Responsive design */
+@media (max-width: 996px) {
+  .dropdownMenu {
+    position: static;
+    box-shadow: var(--ifm-global-shadow-lw);
+    border-radius: var(--ifm-global-radius);
+    margin-top: 0.25rem;
+  }
+}
