@@ -1,0 +1,21 @@
+Environment Variable Validation Script
+====================================
+
+Validating backend environment variables...
+✓ Present: 4 variables
+✗ Missing: 1 variables
+
+Missing required environment variables for backend:
+  - JWT_SECRET_KEY
+
+Validating auth-server environment variables...
+✓ Present: 6 variables
+✗ Missing: 0 variables
+✓ All required environment variables for auth-server are set
+
+Validating frontend environment variables...
+✓ Present: 7 variables
+✗ Missing: 0 variables
+✓ All required environment variables for frontend are set
+
+❌ Some environment variables are missing. Please check the output above.

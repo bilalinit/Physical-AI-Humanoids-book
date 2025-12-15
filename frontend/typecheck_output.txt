@@ -1,0 +1,10 @@
+
+> frontend@0.0.0 typecheck
+> tsc
+
+node_modules/algoliasearch/dist/lite/browser.d.ts(62,175): error TS1010: '*/' expected.
+src/hooks/useAuth.ts(199,27): error TS1005: '>' expected.
+src/hooks/useAuth.ts(199,32): error TS1005: ')' expected.
+src/hooks/useAuth.ts(201,6): error TS1161: Unterminated regular expression literal.
+src/hooks/useAuth.ts(202,3): error TS1128: Declaration or statement expected.
+src/hooks/useAuth.ts(203,1): error TS1128: Declaration or statement expected.

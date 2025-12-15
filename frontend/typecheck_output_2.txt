@@ -1,0 +1,5 @@
+
+> frontend@0.0.0 typecheck
+> tsc
+
+node_modules/algoliasearch/dist/lite/browser.d.ts(62,175): error TS1010: '*/' expected.

@@ -12,6 +12,7 @@ const config: Config = {
   // Custom fields accessible via useDocusaurusContext()
   customFields: {
     apiUrl: process.env.BACKEND_URL || 'http://localhost:8000',
+    authServerUrl: process.env.AUTH_SERVER_URL || 'http://localhost:3001',
   },
 
   // ChatKit CDN script - CRITICAL for ChatKit UI to render

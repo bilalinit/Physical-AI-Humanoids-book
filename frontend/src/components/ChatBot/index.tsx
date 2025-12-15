@@ -1,12 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ChatKit, useChatKit } from '@openai/chatkit-react';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
+import authService from '@site/src/services/auth';
+import LoginPrompt from './LoginPrompt';
 
 interface ChatBotProps {
   initialSelectedText?: string;
   pendingMessage?: string | null;
   onMessageSent?: () => void;
 }
+
+type AuthState = 'loading' | 'authenticated' | 'unauthenticated';
 
 // Define the ChatBot component with ChatKit integration
 const ChatBot: React.FC<ChatBotProps> = ({ initialSelectedText, pendingMessage, onMessageSent }) => {
@@ -55,12 +59,51 @@ const ChatBot: React.FC<ChatBotProps> = ({ initialSelectedText, pendingMessage, 
   const [initialThread, setInitialThread] = useState<string | null>(null);
   const [isReady, setIsReady] = useState(false);
 
-  // Initialize on component mount
+  // Authentication state
+  const [authState, setAuthState] = useState<AuthState>('loading');
+
+  // Check authentication on component mount
   useEffect(() => {
-    const savedThread = localStorage.getItem('chatkit-thread-id');
-    setInitialThread(savedThread);
-    setIsReady(true);
-  }, []); // This will run after the color mode detection effect
+    const checkAuth = async () => {
+      try {
+        // First check localStorage for session data (stored after sign-in)
+        const storedSession = localStorage.getItem('auth_session');
+        if (storedSession) {
+          try {
+            const session = JSON.parse(storedSession);
+            if (session && session.user) {
+              setAuthState('authenticated');
+              return;
+            }
+          } catch (e) {
+            // Invalid JSON, continue to API check
+          }
+        }
+
+        // Fallback: Check with auth server via API
+        const session = await authService.getSession();
+        if (session) {
+          setAuthState('authenticated');
+        } else {
+          setAuthState('unauthenticated');
+        }
+      } catch (error) {
+        console.error('Auth check failed:', error);
+        setAuthState('unauthenticated');
+      }
+    };
+
+    checkAuth();
+  }, []);
+
+  // Initialize ChatKit only after successful auth
+  useEffect(() => {
+    if (authState === 'authenticated') {
+      const savedThread = localStorage.getItem('chatkit-thread-id');
+      setInitialThread(savedThread);
+      setIsReady(true);
+    }
+  }, [authState]);
 
   // State for ChatKit error handling
   const [chatKitError, setChatKitError] = useState<string | null>(null);
@@ -119,7 +162,32 @@ const ChatBot: React.FC<ChatBotProps> = ({ initialSelectedText, pendingMessage, 
     }
   }, [pendingMessage, isReady, setComposerValue, focusComposer, onMessageSent]);
 
-  // Wait for initialization
+  // Wait for authentication check
+  if (authState === 'loading') {
+    return (
+      <div
+        style={{
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: colorMode === 'dark' ? 'var(--ifm-background-surface-color)' : 'var(--ifm-color-white)',
+        }}
+      >
+        <div>
+          <div>Checking authentication...</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show login prompt if not authenticated
+  if (authState === 'unauthenticated') {
+    return <LoginPrompt colorMode={colorMode} />;
+  }
+
+  // Wait for ChatKit initialization (only reached if authenticated)
   if (!isReady) {
     return (
       <div

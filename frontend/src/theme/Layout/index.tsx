@@ -2,6 +2,10 @@ import React, { useState, useEffect } from 'react';
 import OriginalLayout from '@theme-original/Layout';
 import ChatBot from '@site/src/components/ChatBot';
 import type { Props } from '@theme/Layout';
+import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
+import authService from '@site/src/services/auth';
+
+// Floating ChatBot button component
 
 // Floating ChatBot button component
 const FloatingChatButton = () => {
@@ -136,6 +140,15 @@ const FloatingChatButton = () => {
 };
 
 export default function Layout(props: Props) {
+  const { siteConfig } = useDocusaurusContext();
+
+  // Configure auth service with URL from Docusaurus config
+  useEffect(() => {
+    if (siteConfig.customFields?.authServerUrl) {
+      authService.setBaseUrl(siteConfig.customFields.authServerUrl as string);
+    }
+  }, [siteConfig]);
+
   return (
     <>
       <OriginalLayout {...props} />

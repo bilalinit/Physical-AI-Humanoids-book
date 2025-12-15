@@ -462,7 +462,7 @@ async def manual_cleanup_threads():
 
 # Thread Management Endpoints
 @app.get("/api/chat/threads")
-async def get_threads(current_user: dict = Depends(get_current_user_optional)):
+async def get_threads(current_user: dict = Depends(get_current_user)):
     """Retrieve list of user's chat threads"""
     try:
         threads_list = []
@@ -496,7 +496,7 @@ async def get_threads(current_user: dict = Depends(get_current_user_optional)):
 
 
 @app.get("/api/chat/threads/{thread_id}")
-async def get_thread_messages(thread_id: str, current_user: dict = Depends(get_current_user_optional)):
+async def get_thread_messages(thread_id: str, current_user: dict = Depends(get_current_user)):
     """Retrieve messages for a specific thread"""
     try:
         if thread_id not in chat_threads:
@@ -529,7 +529,7 @@ async def get_thread_messages(thread_id: str, current_user: dict = Depends(get_c
 
 
 @app.post("/api/chat/threads")
-async def create_thread(request: dict, current_user: dict = Depends(get_current_user_optional)):
+async def create_thread(request: dict, current_user: dict = Depends(get_current_user)):
     """Create a new chat thread"""
     try:
         thread_id = str(uuid.uuid4())
@@ -576,7 +576,7 @@ async def create_thread(request: dict, current_user: dict = Depends(get_current_
 
 # Chat message processing endpoint
 @app.post("/api/chat/threads/{thread_id}/messages")
-async def process_message(thread_id: str, request: dict, current_user: dict = Depends(get_current_user_optional)):
+async def process_message(thread_id: str, request: dict, current_user: dict = Depends(get_current_user)):
     """Send a message and receive AI response with RAG-enhanced content"""
     try:
         if thread_id not in chat_threads:
@@ -938,7 +938,7 @@ async def process_rag_query(request: dict):
 
 # RAG Chat endpoint (original functionality preserved)
 @app.post("/api/chat", response_model=ChatResponse)
-async def rag_chat(request: ChatRequest):
+async def rag_chat(request: ChatRequest, current_user: dict = Depends(get_current_user_optional)):
     try:
         # Simple content validation (without complex guardrail that's causing issues)
         user_query = request.user_query
@@ -1000,44 +1000,68 @@ async def rag_chat(request: ChatRequest):
         # Build context string for the agent
         context_str = "\n\n".join([chunk["text"] for chunk in context_chunks])
 
-        # Build the system prompt with selected text if available
-        if request.selected_text:
-            # Prioritize the selected text as primary context
-            system_prompt = f"""
-            You are a helpful assistant that answers questions based on the provided book content.
-            The user has selected specific text from the documentation and wants to ask about it.
-            PRIMARY CONTEXT (selected by user):
-            {request.selected_text}
+        # Prepare system prompt with personalization based on user profile
+        from .services.prompt_personalization import prompt_personalization_service
 
-            Additional context from search results:
-            {context_str}
+        # Create a base system prompt
+        base_system_prompt = f"""
+        You are a helpful assistant that answers questions based on the provided book content.
+        Use the following context to answer the user's question:
+        {context_str}
 
-            User Profile:
-            - Education Level: {request.user_profile.get('education', 'beginner')}
-            - Experience: {request.user_profile.get('experience', 'software:2_years')}
+        User's Question: {user_query}
+        """
 
-            Adjust your responses based on the user's education level and experience.
-            When answering, make sure to address the PRIMARY CONTEXT (selected text) directly.
-            If the context doesn't contain information to answer the question, say so.
-            Always cite the source document when providing information from the context.
-            """
+        # If user is authenticated, get their profile for personalization
+        if current_user is not None:
+            try:
+                from .database import SessionLocal
+                from .models.user import User as UserModel
+
+                db = SessionLocal()
+                try:
+                    # Get user profile from database
+                    user_db = db.query(UserModel).filter(UserModel.id == current_user.get("sub")).first()
+                    if user_db:
+                        user_profile = {
+                            "educationLevel": user_db.education_level,
+                            "programmingExperience": user_db.programming_experience,
+                            "roboticsBackground": user_db.robotics_background,
+                            "softwareBackground": user_db.software_background,
+                            "hardwareBackground": user_db.hardware_background
+                        }
+
+                        # Generate personalized system prompt
+                        system_prompt = prompt_personalization_service.get_personalized_system_prompt(
+                            user_profile=user_profile,
+                            base_prompt=base_system_prompt
+                        )
+                    else:
+                        # Fallback to base prompt if user not found
+                        system_prompt = base_system_prompt
+                finally:
+                    db.close()
+            except Exception as e:
+                logger.error(f"Error personalizing prompt: {str(e)}")
+                # Fallback to base prompt
+                system_prompt = base_system_prompt
         else:
-            # Use the original system prompt when no selected text is provided
+            # For anonymous users, use base prompt
+            system_prompt = base_system_prompt
+
+        # If selected text is provided, prioritize it in the system prompt
+        if request.selectedText:
+            # Enhance the system prompt with selected text as primary context
             system_prompt = f"""
-            You are a helpful assistant that answers questions based on the provided book content.
-            Use the following context to answer the user's question:
-            {context_str}
+            {system_prompt}
 
-            User Profile:
-            - Education Level: {request.user_profile.get('education', 'beginner')}
-            - Experience: {request.user_profile.get('experience', 'software:2_years')}
+            PRIMARY CONTEXT (selected by user):
+            {request.selectedText}
 
-            Adjust your responses based on the user's education level and experience.
-            If the context doesn't contain information to answer the question, say so.
-            Always cite the source document when providing information from the context.
+            When answering the user's question, prioritize information from the PRIMARY CONTEXT.
             """
 
-        # Create the RAG agent with the context
+        # Create the RAG agent with the personalized context
         rag_agent = Agent(
             name="RAGBot",
             instructions=system_prompt,
@@ -1046,6 +1070,29 @@ async def rag_chat(request: ChatRequest):
 
         # Run the agent with the user query
         response = await Runner.run(rag_agent, user_query, run_config=config)
+
+        # Save chat history if user is authenticated
+        if current_user is not None:
+            try:
+                from .database import SessionLocal
+                from .services.chat_history_service import get_chat_history_service
+
+                # Create a new database session
+                db = SessionLocal()
+                try:
+                    chat_service = get_chat_history_service(db)
+                    # Save the chat message to history
+                    chat_service.save_message(
+                        user_id=current_user.get("sub"),  # Use the user ID from JWT
+                        message=user_query,
+                        response=response.final_output if response.final_output else "I couldn't find relevant information in the book content.",
+                        selected_text=request.selected_text
+                    )
+                finally:
+                    db.close()
+            except Exception as e:
+                # Log the error but don't fail the request if saving history fails
+                logger.error(f"Error saving chat history: {str(e)}")
 
         return ChatResponse(
             output=response.final_output if response.final_output else "I couldn't find relevant information in the book content.",

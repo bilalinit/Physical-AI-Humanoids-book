@@ -1,0 +1,356 @@
+openapi: 3.0.3
+info:
+  title: Backend RAG API
+  description: FastAPI backend for RAG chatbot with authentication integration
+  version: 1.0.0
+  contact:
+    name: Development Team
+    email: dev@example.com
+
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+  - url: https://api.yourdomain.com
+    description: Production server
+
+tags:
+  - name: Chat
+    description: RAG chat functionality
+  - name: Chat History
+    description: User chat history management
+  - name: Authentication
+    description: Session validation and user context
+
+paths:
+  # Chat endpoints (require authentication)
+  /api/chat:
+    post:
+      tags: [Chat]
+      summary: Send chat message
+      description: Send a message to the RAG chatbot with optional text selection context
+      security:
+        - sessionCookie: []
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+      responses:
+        '200':
+          description: Chat response generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded
+        '500':
+          description: Internal server error
+
+  # Chat history endpoints
+  /api/chat/history:
+    get:
+      tags: [Chat History]
+      summary: Get chat history
+      description: Retrieve authenticated user's chat history
+      security:
+        - sessionCookie: []
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+          description: Number of messages to return
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          description: Pagination offset
+      responses:
+        '200':
+          description: Chat history retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatHistoryResponse'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+
+  /api/chat/history/{messageId}:
+    delete:
+      tags: [Chat History]
+      summary: Delete chat message
+      description: Delete a specific chat message from history
+      security:
+        - sessionCookie: []
+        - bearerAuth: []
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: ID of the chat message to delete
+      responses:
+        '204':
+          description: Message deleted successfully
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Message not found or not owned by user
+        '500':
+          description: Internal server error
+
+  # Session validation endpoint (for backend to validate with auth server)
+  /api/auth/validate-session:
+    post:
+      tags: [Authentication]
+      summary: Validate session with auth server
+      description: Internal endpoint for backend to validate session with auth server
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ValidateSessionRequest'
+      responses:
+        '200':
+          description: Session valid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserContext'
+        '401':
+          description: Invalid session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+
+  # Health check
+  /api/health:
+    get:
+      tags: [Authentication]
+      summary: Health check
+      description: Check if backend is running and can connect to databases
+      responses:
+        '200':
+          description: Backend healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "healthy"
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2025-12-13T10:30:00Z"
+                  services:
+                    type: object
+                    properties:
+                      database:
+                        type: boolean
+                        example: true
+                      qdrant:
+                        type: boolean
+                        example: true
+                      auth_server:
+                        type: boolean
+                        example: true
+        '503':
+          description: Service unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    # Request schemas
+    ChatRequest:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+          minLength: 1
+          maxLength: 5000
+          example: "How do I program a robot arm?"
+        selectedText:
+          type: string
+          maxLength: 2000
+          example: "Robot arms use servo motors for precise movement control..."
+        threadId:
+          type: string
+          description: Existing thread ID for conversation continuity
+          example: "thread_abc123"
+
+    ValidateSessionRequest:
+      type: object
+      required: [sessionToken]
+      properties:
+        sessionToken:
+          type: string
+          description: Better Auth session token from cookie
+          example: "abc123def456"
+
+    # Response schemas
+    ChatResponse:
+      type: object
+      properties:
+        response:
+          type: string
+          example: "Robot arms are programmed using a combination of kinematics and control algorithms..."
+        messageId:
+          type: integer
+          description: ID of the saved chat message in database
+          example: 42
+        threadId:
+          type: string
+          description: Thread ID for conversation continuity
+          example: "thread_abc123"
+        sources:
+          type: array
+          items:
+            type: object
+            properties:
+              title:
+                type: string
+                example: "Chapter 3: Robot Arm Programming"
+              content:
+                type: string
+                example: "Robot arms use inverse kinematics to calculate joint angles..."
+              page:
+                type: integer
+                example: 45
+        createdAt:
+          type: string
+          format: date-time
+          example: "2025-12-13T10:30:00Z"
+
+    ChatHistoryResponse:
+      type: object
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChatHistoryItem'
+        total:
+          type: integer
+          example: 42
+        hasMore:
+          type: boolean
+          example: true
+
+    ChatHistoryItem:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 42
+        message:
+          type: string
+          example: "How do I program a robot arm?"
+        response:
+          type: string
+          example: "Robot arms are programmed using a combination of kinematics..."
+        selectedText:
+          type: string
+          nullable: true
+          example: "Robot arms use servo motors for precise movement control..."
+        createdAt:
+          type: string
+          format: date-time
+          example: "2025-12-13T10:30:00Z"
+
+    UserContext:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        name:
+          type: string
+          example: John Doe
+        educationLevel:
+          type: string
+          enum: [High School, Undergraduate, Graduate, Professional]
+          example: Undergraduate
+        programmingExperience:
+          type: string
+          enum: [No Experience, Beginner, Intermediate, Advanced]
+          example: Beginner
+        softwareBackground:
+          type: string
+          example: "Some Python and web development"
+        hardwareBackground:
+          type: string
+          example: "Basic electronics and Arduino"
+        roboticsBackground:
+          type: string
+          enum: [No Experience, Hobbyist, Academic, Professional]
+          example: Hobbyist
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Not authenticated"
+        message:
+          type: string
+          example: "Please sign in to access chat functionality"
+        code:
+          type: string
+          example: "UNAUTHENTICATED"
+        details:
+          type: object
+          additionalProperties: true
+
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: better-auth.session_token
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - sessionCookie: []
+  - bearerAuth: []
