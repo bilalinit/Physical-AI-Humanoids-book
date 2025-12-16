@@ -72,15 +72,21 @@ const SigninForm: React.FC<SigninFormProps> = ({ onSigninSuccess }) => {
     } catch (error: any) {
       console.error('Signin error:', error);
 
-      if (error.response) {
+      if (error.body?.message) {
+        setErrors({ general: error.body.message });
+      } else if (error.response) {
         // Server responded with error status
         if (error.response.status === 400) {
-          setErrors({ general: error.response.data.error || 'Invalid input data' });
+          setErrors({ general: error.response.data?.error || error.response.data?.message || 'Invalid input data' });
         } else if (error.response.status === 401) {
-          setErrors({ general: 'Invalid email or password' });
+          setErrors({ general: error.response.data?.message || 'Invalid email or password' });
+        } else if (error.response.status === 404) {
+          setErrors({ general: error.response.data?.message || 'User not found' });
         } else {
-          setErrors({ general: 'An error occurred during signin. Please try again.' });
+          setErrors({ general: error.response.data?.message || error.response.data?.error || 'An error occurred during signin. Please try again.' });
         }
+      } else if (error.message) {
+        setErrors({ general: error.message });
       } else {
         // Network or other error
         setErrors({ general: 'Network error. Please check your connection and try again.' });

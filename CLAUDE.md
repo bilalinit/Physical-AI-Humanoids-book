@@ -220,6 +220,8 @@ See `.specify/memory/constitution.md` for code quality, testing, performance, se
 - TypeScript 5.x (Frontend), Python 3.12+ (Backend), Node.js 20+ (Auth Server) + Docusaurus 3.x, React 19, FastAPI, OpenAI Agents SDK, Qdrant, Better Auth (004-text-selection)
 - TypeScript 5.x, React 19 + Docusaurus 3.x, React, Better Auth, Infima CSS framework (006-adding-ui-design)
 - localStorage for session management, N/A for component styling (006-adding-ui-design)
+- Python 3.12+ (Backend), TypeScript 5.x (Frontend), Node.js 20+ (Auth Server) + FastAPI (Backend), Docusaurus 3.x (Frontend), Better Auth (Auth Server), Neon PostgreSQL (Database), Qdrant (Vector DB) (007-chat-history-management)
+- PostgreSQL database hosted on Neon for chat thread and message persistence (007-chat-history-management)
 
 ## Recent Changes
 - 001-physical-ai-book: Added TypeScript 5.x, Python 3.12+ (managed via `uv`) + Docusaurus 3.x, React 19, FastAPI, Node.js 20+, Better Auth, Express, Qdrant, PostgreSQL

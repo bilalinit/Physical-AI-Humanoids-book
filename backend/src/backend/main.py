@@ -32,6 +32,9 @@ from chatkit.store import Store
 from chatkit.types import ThreadMetadata, ThreadItem, Page
 from chatkit.agents import AgentContext, stream_agent_response, ThreadItemConverter
 
+# Import chat history API router
+from .api.v1.chat import router as chat_v1_router
+
 # Set up the OpenAI client with Gemini's OpenAI-compatible endpoint
 API_KEY = os.getenv("GEMINI_API_KEY")
 if not API_KEY:
@@ -147,6 +150,13 @@ from database import qdrant_client_instance, get_embedding
 # Import the MemoryStore implementation
 from .store import MemoryStore
 
+# Import database services for chat history persistence
+from .database.connection import get_async_db, AsyncSessionLocal
+from .services.chat_thread_service import get_chat_thread_service
+
+# Import persistent chat history API
+from .api.v1.chat import router as chat_v1_router
+
 # ChatKit Server Implementation
 class ChatKitServerImpl(ChatKitServer):
     def __init__(self, store: Store):
@@ -211,6 +221,35 @@ class ChatKitServerImpl(ChatKitServer):
             User Question: {user_message}
             """
             search_response = None
+        
+        # Fetch user profile for personalization
+        user_profile = {}
+        user_id = context.get('user', {}).get('id')
+        if hasattr(self.store, 'get_user_profile') and user_id:
+            user_profile = self.store.get_user_profile(user_id)
+            logger.info(f"Loaded user profile for personalization: {user_profile}")
+
+        # Construct personalization context string
+        personalization_instruction = ""
+        if user_profile:
+            p_level = f"User's Education Level: {user_profile.get('education_level', 'Unknown')}"
+            p_prog = f"Programming Experience: {user_profile.get('programming_experience', 'Unknown')}"
+            p_robot = f"Robotics Background: {user_profile.get('robotics_background', 'Unknown')}"
+            
+            personalization_instruction = f"""
+            PERSONALIZATION CONTEXT:
+            - {p_level}
+            - {p_prog}
+            - {p_robot}
+            
+            ADAPTATION INSTRUCTIONS:
+            - Adjust your language complexity to match the user's education level.
+            - If programming experience is 'Beginner' or 'No Experience', explain code concepts simply.
+            - If robotics background is 'No Experience', avoid jargon or explain it clearly.
+            - If user is advanced/expert, you can use more technical terms and go deeper.
+            """
+        else:
+            personalization_instruction = "Adapt your response to be helpful and clear for a general audience."
 
         # Build system prompt based on search results
         if search_response is not None:
@@ -291,6 +330,9 @@ class ChatKitServerImpl(ChatKitServer):
             Try to answer the user's question based on general knowledge.
             """
 
+        # Append personalization instruction to the final system prompt
+        system_prompt = f"{system_prompt}\n\n{personalization_instruction}"
+
         # Create the RAG agent with the context
         rag_agent = Agent(
             name="RAGBot",
@@ -354,8 +396,18 @@ class ChatKitServerImpl(ChatKitServer):
 
 app = FastAPI(title="Qdrant RAG API with ChatKit Compatibility")
 
+# Mount the persistent chat history API
+app.include_router(chat_v1_router)
+
 # Initialize ChatKit store and server
-store = MemoryStore()
+# Use NeonStore for persistent per-user chat history
+try:
+    from .neon_store import NeonStore
+    store = NeonStore()
+    logger.info("Using NeonStore for persistent chat history")
+except Exception as e:
+    logger.warning(f"Failed to initialize NeonStore, falling back to MemoryStore: {e}")
+    store = MemoryStore()
 server = ChatKitServerImpl(store)
 
 # Add CORS middleware
@@ -633,6 +685,29 @@ async def process_message(thread_id: str, request: dict, current_user: dict = De
         }
         chat_messages[thread_id].append(user_message)
 
+        # Save user message to database
+        user_id = current_user.get("sub") if current_user else None
+        async with AsyncSessionLocal() as db_session:
+            try:
+                chat_service = get_chat_thread_service(db_session)
+                # Check if thread exists in DB, if not create it
+                db_thread = await chat_service.get_thread_by_id(uuid.UUID(thread_id), user_id) if user_id else None
+                if not db_thread and user_id:
+                    db_thread = await chat_service.create_chat_thread(user_id=user_id, title=content[:50])
+
+                if db_thread:
+                    await chat_service.add_message_to_thread(
+                        thread_id=db_thread.id,
+                        user_id=user_id,
+                        role="user",
+                        content=content,
+                        sources=None,
+                        selected_text_used=bool(selected_text)
+                    )
+                await db_session.commit()
+            except Exception as e:
+                logger.error(f"Failed to save user message to database: {e}")
+
         # Generate embedding for user query
         query_embedding = get_embedding(content, "retrieval_query")
 
@@ -794,6 +869,25 @@ async def process_message(thread_id: str, request: dict, current_user: dict = De
 
         # Add assistant message to thread
         chat_messages[thread_id].append(assistant_message)
+
+        # Save assistant message to database
+        user_id = current_user.get("sub") if current_user else None
+        async with AsyncSessionLocal() as db_session:
+            try:
+                chat_service = get_chat_thread_service(db_session)
+                db_thread = await chat_service.get_thread_by_id(uuid.UUID(thread_id), user_id) if user_id else None
+                if db_thread:
+                    await chat_service.add_message_to_thread(
+                        thread_id=db_thread.id,
+                        user_id=user_id,
+                        role="assistant",
+                        content=assistant_message["content"],
+                        sources=assistant_message.get("sources"),
+                        selected_text_used=assistant_message.get("used_selected_text", False)
+                    )
+                await db_session.commit()
+            except Exception as e:
+                logger.error(f"Failed to save assistant message to database: {e}")
 
         # Implement conversation history management to prevent token limit issues
         # Keep only the most recent messages (e.g., last 20 messages) to prevent token limits
@@ -1214,7 +1308,16 @@ async def diagnostics():
 @app.post("/")
 async def chatkit_endpoint(request: Request):
     """ChatKit endpoint - handles ChatKit protocol requests with RAG functionality"""
-    result = await server.process(await request.body(), {})
+    # Extract userId from query parameter for per-user chat history
+    user_id = request.query_params.get('userId')
+    
+    # Build context with user info for NeonStore
+    context = {}
+    if user_id:
+        context = {"user": {"id": user_id}}
+        logger.debug(f"ChatKit request from user: {user_id}")
+    
+    result = await server.process(await request.body(), context)
     if isinstance(result, StreamingResult):
         return StreamingResponse(result, media_type="text/event-stream")
     return Response(content=result.json, media_type="application/json")
@@ -1233,7 +1336,16 @@ async def chatkit_options():
 @app.post("/chatkit")
 async def chatkit_legacy_endpoint(request: Request):
     """Legacy ChatKit endpoint - handles ChatKit protocol requests with RAG functionality"""
-    result = await server.process(await request.body(), {})
+    # Extract userId from query parameter for per-user chat history
+    user_id = request.query_params.get('userId')
+    
+    # Build context with user info for NeonStore
+    context = {}
+    if user_id:
+        context = {"user": {"id": user_id}}
+        logger.debug(f"ChatKit legacy request from user: {user_id}")
+    
+    result = await server.process(await request.body(), context)
     if isinstance(result, StreamingResult):
         return StreamingResponse(result, media_type="text/event-stream")
     return Response(content=result.json, media_type="application/json")

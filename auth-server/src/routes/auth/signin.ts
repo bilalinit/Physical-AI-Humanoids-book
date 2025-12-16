@@ -61,7 +61,14 @@ export default async (req: Request, res: Response) => {
     console.error('Signin error:', error);
 
     // Handle specific Better Auth errors
-    if (error.message && error.message.includes('Invalid credentials')) {
+    // Handle specific Better Auth errors
+    if (
+      error.message?.includes('Invalid credentials') ||
+      error.message?.includes('Invalid email or password') ||
+      error.body?.code === 'INVALID_EMAIL_OR_PASSWORD' ||
+      error.status === 'UNAUTHORIZED' ||
+      error.statusCode === 401
+    ) {
       return res.status(401).json({
         error: 'Invalid email or password'
       });

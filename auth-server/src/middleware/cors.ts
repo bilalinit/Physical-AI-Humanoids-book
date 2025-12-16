@@ -3,8 +3,7 @@ import cors, { CorsOptions } from 'cors';
 // Determine allowed origins based on environment
 const allowedOrigins: string[] = process.env.NODE_ENV === 'production'
   ? [
-    process.env.FRONTEND_URL || 'https://physical-ai-humanoids-book-rag.netlify.app',
-    'https://your-production-frontend.com'
+    process.env.FRONTEND_URL || 'https://physical-ai-humanoids-book-rag.netlify.app'
   ]
   : [
     'http://localhost:3000', // Docusaurus frontend (local dev)

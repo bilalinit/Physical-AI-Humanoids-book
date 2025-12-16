@@ -50,3 +50,4 @@ class ChatHistory(Base):
     user = relationship("User", back_populates="chat_histories")
 
 User.chat_histories = relationship("ChatHistory", order_by=ChatHistory.created_at.desc(), back_populates="user")
+User.chat_threads = relationship("ChatThread", order_by="ChatThread.updated_at.desc()", back_populates="user")

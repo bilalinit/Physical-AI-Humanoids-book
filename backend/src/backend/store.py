@@ -139,9 +139,20 @@ class MemoryStore(Store[dict]):
     async def load_threads(self, limit: int, after: str | None, order: str, context: dict) -> Page[ThreadMetadata]:
         """List all threads with pagination"""
         threads = [s.thread.model_copy(deep=True) for s in self._threads.values()]
+        
+        # Helper to ensure timezone-aware datetime for comparison
+        def get_sortable_time(t):
+            dt = t.created_at
+            if dt is None:
+                return datetime.now(timezone.utc)
+            # If naive, assume UTC
+            if dt.tzinfo is None:
+                return dt.replace(tzinfo=timezone.utc)
+            return dt
+        
         # Sort by created_at
         threads.sort(
-            key=lambda t: t.created_at,
+            key=get_sortable_time,
             reverse=(order == "desc")
         )
         return Page(data=threads[:limit], has_more=len(threads) > limit)

@@ -16,7 +16,34 @@ type AuthState = 'loading' | 'authenticated' | 'unauthenticated';
 const ChatBot: React.FC<ChatBotProps> = ({ initialSelectedText, pendingMessage, onMessageSent }) => {
   // Get API URL from Docusaurus config
   const { siteConfig } = useDocusaurusContext();
-  const apiUrl = (siteConfig.customFields?.apiUrl as string) || 'http://localhost:8000';
+  const baseApiUrl = (siteConfig.customFields?.apiUrl as string) || 'http://localhost:8000';
+
+  // Get userId from localStorage for per-user chat history
+  const getUserIdFromStorage = (): string | null => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const authSession = localStorage.getItem('auth_session');
+      if (authSession) {
+        const session = JSON.parse(authSession);
+        return session?.user?.id || null;
+      }
+    } catch (e) {
+      console.error('Error parsing auth session:', e);
+    }
+    return null;
+  };
+
+  // Build API URL with userId query param for per-user chat history
+  const [apiUrl, setApiUrl] = useState(baseApiUrl);
+
+  useEffect(() => {
+    const userId = getUserIdFromStorage();
+    if (userId) {
+      setApiUrl(`${baseApiUrl}?userId=${encodeURIComponent(userId)}`);
+    } else {
+      setApiUrl(baseApiUrl);
+    }
+  }, [baseApiUrl]);
 
   // Extract domain for ChatKit domainKey
   const getDomainKey = (url: string): string => {
