@@ -135,11 +135,11 @@ const ChatBot: React.FC<ChatBotProps> = ({ initialSelectedText, pendingMessage, 
   // State for ChatKit error handling
   const [chatKitError, setChatKitError] = useState<string | null>(null);
 
-  // Configure ChatKit with error handling
+
   const { control, setComposerValue, focusComposer } = useChatKit({
     api: {
       url: apiUrl,
-      domainKey: 'localhost', // Use localhost for custom backend to bypass OpenAI domain verification
+      domainKey: (siteConfig.customFields?.chatkitDomainKey as string) || 'localhost',
     },
     initialThread: initialThread,
     theme: {

@@ -13,6 +13,7 @@ const config: Config = {
   customFields: {
     apiUrl: process.env.BACKEND_URL || 'http://localhost:8000',
     authServerUrl: process.env.AUTH_SERVER_URL || 'http://localhost:3001',
+    chatkitDomainKey: process.env.CHATKIT_DOMAIN_KEY || 'localhost',
   },
 
   // ChatKit CDN script - CRITICAL for ChatKit UI to render
